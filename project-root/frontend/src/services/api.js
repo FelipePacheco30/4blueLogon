@@ -146,12 +146,44 @@ export async function getMessagesByUser(userId) {
 }
 
 export async function postMessage(payload) {
-  return await callFetchIfAllowed(`/api/messages/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }, () => mockPostMessage(payload))
+  try {
+    const res = await fetch(`${API_BASE}/api/messages/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw new Error('postMessage failed')
+    return await res.json()
+  } catch (e) {
+    console.warn('postMessage fallback', e)
+    const now = new Date().toISOString()
+    // fallback responses (same sets as backend)
+    const responsesA = [
+      "Obrigado, Usuário A. Em breve nossa equipe retornará.",
+      "Recebemos sua mensagem, Usuário A — já encaminhamos para o time.",
+      "Perfeito, Usuário A! Em instantes alguém irá falar com você.",
+      "Sua solicitação foi registrada, Usuário A. Acompanhe por aqui.",
+      "Obrigado! Um especialista entrará em contato em breve, Usuário A."
+    ]
+    const responsesB = [
+      "Recebido, Usuário B. Um especialista responderá logo.",
+      "Mensagem entregue, Usuário B — estamos analisando.",
+      "Ótimo, Usuário B. Em breve teremos retorno.",
+      "Sua demanda foi registrada, Usuário B. Fique atento às atualizações.",
+      "Obrigado, Usuário B. Já repassamos ao time responsável."
+    ]
+    const resp = payload.user === 'A' ? responsesA[Math.floor(Math.random()*responsesA.length)] : responsesB[Math.floor(Math.random()*responsesB.length)]
+    return {
+      id: Math.floor(Math.random() * 100000),
+      user: payload.user,
+      text: payload.text,
+      response_text: resp,
+      created_at: now,
+      response_id: `${Math.floor(Math.random()*100000)}-r`
+    }
+  }
 }
+
 
 export async function markMessagesViewed(userId) {
   // try backend endpoint, but if FORCE_MOCK or failure -> mockMarkMessagesViewed

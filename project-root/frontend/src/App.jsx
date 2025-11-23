@@ -20,12 +20,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {!user ? (
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      ) : (
+      {user ? (
         <div className="flex-1 flex">
           <Sidebar />
           <main className="flex-1 p-6">
@@ -38,8 +33,13 @@ export default function App() {
             </Routes>
           </main>
         </div>
+      ) : (
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       )}
-
+      {/* Footer visível sempre */}
       <Footer />
     </div>
   )
