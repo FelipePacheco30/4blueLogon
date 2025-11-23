@@ -1,38 +1,41 @@
 import React, { useState } from 'react'
 
-export default function MessageInput({ onSend }) {
+export default function MessageInput({ onSend, placeholderWhite = false }) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
 
   async function submit(e) {
-    e.preventDefault()
-    if (!text.trim() || sending) return
+    e?.preventDefault()
+    if (!text.trim()) return
     setSending(true)
     try {
       await onSend(text.trim())
       setText('')
-    } catch (err) {
-      console.error('send error', err)
-      alert('Erro ao enviar mensagem.')
+    } catch (e) {
+      console.error(e)
     } finally {
       setSending(false)
     }
   }
 
+  function onKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      submit()
+    }
+  }
+
   return (
     <form onSubmit={submit} className="flex gap-3 items-center">
-      <input
+      <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        className="flex-1 border border-gray-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-mid"
-        placeholder="Digite sua mensagem..."
+        onKeyDown={onKey}
+        className={`chat-input ${placeholderWhite ? 'input-placeholder-white' : ''}`}
+        placeholder="Escreva sua mensagem e pressione Enter para enviar..."
         aria-label="mensagem"
       />
-      <button
-        type="submit"
-        disabled={sending}
-        className="bg-blue-mid text-white rounded-full px-4 py-2 disabled:opacity-60"
-      >
+      <button type="submit" disabled={sending} className="btn-send" style={{background:'var(--brand-top)', color:'#fff', border:'none'}}>
         {sending ? 'Enviando...' : 'Enviar'}
       </button>
     </form>

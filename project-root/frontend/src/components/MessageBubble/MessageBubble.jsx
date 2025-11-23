@@ -1,19 +1,34 @@
 import React from 'react'
-import classNames from 'classnames'
+
+const CheckIcon = ({ color = 'gray', className = 'w-5 h-5' }) => {
+  const stroke = color === 'blue' ? '#2F80ED' : '#9CA3AF'
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M20 6L9 17l-5-5" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
 
 export default function MessageBubble({ message }) {
   const isUser = message.direction === 'sent'
+  const viewed = !!message.viewed
+  const timeOptions = { hour: '2-digit', minute: '2-digit' } // no seconds
+  const time = new Date(message.created_at).toLocaleTimeString([], timeOptions)
+
   return (
-    <div className={classNames('flex', isUser ? 'justify-end' : 'justify-start')}>
-      <div
-        className={classNames('rounded-xl px-4 py-2 max-w-[75%] text-sm', {
-          'bg-white border border-blue-mid text-blue-deep': isUser,
-          'bg-blue-mid/90 text-white': !isUser
-        })}
-      >
-        <div>{message.text}</div>
-        <div className="text-xs mt-2 text-gray-200/80 text-right">
-          {new Date(message.created_at).toLocaleString()}
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+      <div className={`${isUser ? 'msg-user' : 'msg-system'} rounded-xl px-5 py-3 max-w-[78%] text-sm`}>
+        <div className="flex items-end justify-between gap-3">
+          <div className="break-words" style={{whiteSpace:'pre-wrap'}}>{message.text}</div>
+
+          <div className="ml-3 text-right flex flex-col items-end">
+            <div className={isUser ? 'msg-time-user' : 'msg-time'}>{time}</div>
+            {isUser && (
+              <div className="mt-1">
+                <CheckIcon color={viewed ? 'blue' : 'gray'} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

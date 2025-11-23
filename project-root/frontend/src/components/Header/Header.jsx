@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import UserSwitcher from '../UserSwitcher/UserSwitcher'
-import logo from '../../assets/logo-4blue.svg?url'
+import logo from '../../assets/logo-4blue.png'
 
 export default function Header() {
   return (

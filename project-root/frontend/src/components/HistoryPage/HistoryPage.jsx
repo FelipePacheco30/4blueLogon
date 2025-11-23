@@ -1,39 +1,38 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { ActiveUserContext } from '../../context/ActiveUserContext'
+import { AuthContext } from '../../context/AuthContext'
 import { getMessagesByUser } from '../../services/api'
 
 export default function HistoryPage() {
-  const { state } = useContext(ActiveUserContext)
+  const { user } = useContext(AuthContext)
   const [messages, setMessages] = useState([])
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    getMessagesByUser(state.user)
-      .then(setMessages)
-      .finally(() => setLoading(false))
-  }, [state.user])
+    if (!user) return
+    getMessagesByUser(user.id).then(msgs => {
+      setMessages(msgs)
+    })
+  }, [user])
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold mb-4">Histórico — Usuário {state.user}</h2>
+    <div className="pattern-postlogin" style={{padding:24}}>
+      <div className="history-wrapper">
+        <div className="history-area">
+          <div className="history-title">HISTÓRICO</div>
 
-      <div className="bg-white rounded-xl shadow p-4">
-        {loading ? (
-          <div>Carregando...</div>
-        ) : (
-          <ul className="space-y-3">
-            {messages.length === 0 && <li className="text-gray-500">Sem mensagens para este usuário.</li>}
-            {messages.map(m => (
-              <li key={String(m.id)} className="p-3 border rounded">
-                <div className="text-sm font-medium">
-                  {m.direction === 'sent' ? 'Enviado' : 'Recebido'} — <span className="text-gray-500">{new Date(m.created_at).toLocaleString()}</span>
+          <div style={{width:'100%'}}>
+            {messages.length === 0 && <div className="text-sm" style={{color:'rgba(255,255,255,0.9)'}}>Nenhuma mensagem encontrada.</div>}
+
+            {messages.map((m) => (
+              <div key={m.id} className="history-card mb-3">
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div style={{fontWeight:700, color:'#fff'}}>{m.direction === 'sent' ? 'Você' : 'Sistema'}</div>
+                  <div style={{fontSize:12, color:'rgba(255,255,255,0.85)'}}>{new Date(m.created_at).toLocaleString([], {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})}</div>
                 </div>
-                <div className="mt-1">{m.text}</div>
-              </li>
+                <div style={{marginTop:8, color:'#fff'}}>{m.text}</div>
+              </div>
             ))}
-          </ul>
-        )}
+          </div>
+        </div>
       </div>
     </div>
   )

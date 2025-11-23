@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import React, { useContext } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import LoginPage from './components/LoginPage/LoginPage'
+import ChatPage from './components/ChatPage/ChatPage'
+import HistoryPage from './components/HistoryPage/HistoryPage'
+import SettingsPage from './components/SettingsPage/SettingsPage'
+import Sidebar from './components/Layout/Sidebar'
+import { AuthContext } from './context/AuthContext'
 
-function App() {
-  const [count, setCount] = useState(0)
-
+function Footer(){
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <footer className="app-footer">
+      <div className="max-w-6xl mx-auto text-sm">© {new Date().getFullYear()} 4blue — Demo. Gradiente aplicado no topo e rodapé.</div>
+    </footer>
   )
 }
 
-export default App
+export default function App() {
+  const { user } = useContext(AuthContext)
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {!user ? (
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      ) : (
+        <div className="flex-1 flex">
+          <Sidebar />
+          <main className="flex-1 p-6">
+            <Routes>
+              <Route path="/" element={<ChatPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/historico" element={<HistoryPage />} />
+              <Route path="/configuracoes" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+      )}
+
+      <Footer />
+    </div>
+  )
+}
