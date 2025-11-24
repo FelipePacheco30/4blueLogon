@@ -1,203 +1,134 @@
 // src/services/api.js
-const API_BASE = import.meta.env.VITE_API_BASE || ''
-const FORCE_MOCK = (import.meta.env.VITE_FORCE_MOCK === 'true') || API_BASE === ''
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
-/* -------------------------
-   Mock store (localStorage)
-   ------------------------- */
-const STORAGE_KEY = '4blue_mock_messages_v1'
-
-function ensureStore() {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]))
+// Helper: low-level fetch wrapper that throws on non-2xx and returns parsed json
+async function safeFetch(url, opts = {}) {
+  const full = url.startsWith('http') ? url : `${API_BASE}${url}`
+  const defaultOpts = {
+    headers: {
+      Accept: 'application/json',
+    },
+    // NOTE: do NOT set credentials by default. If you need cookies/auth, set
+    // VITE_API_USE_CREDENTIALS=true and handle CORS on Django (see README).
+    credentials: (import.meta.env.VITE_API_USE_CREDENTIALS === 'true') ? 'include' : 'omit',
+    ...opts,
   }
-}
 
-function readAll() {
-  ensureStore()
-  const raw = localStorage.getItem(STORAGE_KEY)
   try {
-    return JSON.parse(raw) || []
-  } catch (e) {
-    console.error('failed to parse mock store', e)
-    return []
-  }
-}
-
-function writeAll(arr) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr))
-}
-
-/* Mock implementations */
-async function mockGetMessagesByUser(userId) {
-  await new Promise((r) => setTimeout(r, 120))
-  const all = readAll().filter((m) => m.user === userId)
-  all.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-  return all
-}
-
-async function mockPostMessage({ user, text }) {
-  await new Promise((r) => setTimeout(r, 260))
-  const all = readAll()
-  const numericIds = all
-    .map((m) => {
-      const n = Number(m.id)
-      return Number.isFinite(n) ? n : null
-    })
-    .filter((v) => v !== null)
-  const nextId = numericIds.length ? Math.max(...numericIds) + 1 : 1
-  const created_at = new Date().toISOString()
-  const response_text =
-    user === 'A'
-      ? 'Obrigado, Usuário A. Em breve nossa equipe retornará.'
-      : 'Recebido, Usuário B. Um especialista responderá logo.'
-
-  const userMsg = {
-    id: nextId,
-    user,
-    text,
-    response_text: '',
-    created_at,
-    direction: 'sent',
-    viewed: false
-  }
-
-  const respMsg = {
-    id: `${nextId}-r`,
-    user,
-    text: response_text,
-    response_text: '',
-    created_at: new Date(Date.now() + 10).toISOString(),
-    direction: 'received',
-    viewed: false
-  }
-
-  all.push(userMsg, respMsg)
-  writeAll(all)
-
-  return {
-    id: userMsg.id,
-    user: userMsg.user,
-    text: userMsg.text,
-    response_text,
-    created_at: userMsg.created_at
-  }
-}
-
-async function mockMarkMessagesViewed(userId) {
-  await new Promise((r) => setTimeout(r, 120))
-  const all = readAll()
-  let changed = false
-  for (let m of all) {
-    if (m.user === userId && (m.direction === 'received' || m.direction === 'sent') && !m.viewed) {
-      m.viewed = true
-      changed = true
-    }
-  }
-  if (changed) writeAll(all)
-  return true
-}
-
-async function mockDeleteHistory(userId) {
-  await new Promise((r) => setTimeout(r, 160))
-  const filtered = readAll().filter((m) => m.user !== userId)
-  writeAll(filtered)
-  return { ok: true, status: 200 }
-}
-
-/* -------------------------
-   Helper: callFetchIfAllowed
-   - only attempts network fetch if FORCE_MOCK is false AND API_BASE is set.
-   - otherwise uses mock immediately and does NOT cause network errors.
-*/
-async function callFetchIfAllowed(path, options = {}, fallbackFn) {
-  if (FORCE_MOCK) {
-    return await fallbackFn()
-  }
-  try {
-    const url = `${API_BASE}${path}`
-    const res = await fetch(url, options)
-    if (!res.ok) {
-      // fallback to mock if server returns non-2xx
-      return await fallbackFn()
-    }
-    // try parse json (if there's a body)
+    const res = await fetch(full, defaultOpts)
     const text = await res.text()
-    try {
-      return JSON.parse(text || 'null')
-    } catch (e) {
-      return text
+    let body = null
+    try { body = text ? JSON.parse(text) : null } catch (e) { body = text }
+
+    if (!res.ok) {
+      const err = new Error(`HTTP ${res.status} ${res.statusText}`)
+      err.status = res.status
+      err.body = body
+      throw err
     }
+    return body
   } catch (e) {
-    // network error -> fallback mock (no uncaught exception)
-    return await fallbackFn()
+    // propagate a clear object the frontend can log
+    throw { url: full, opts: defaultOpts, error: e }
   }
 }
 
 /* -------------------------
-   Exported API functions
+   Helpers for DRF-style paginated endpoints
    ------------------------- */
-
-export async function getMessagesByUser(userId) {
-  return await callFetchIfAllowed(`/api/messages/?user=${encodeURIComponent(userId)}`, { method: 'GET' }, () =>
-    mockGetMessagesByUser(userId)
-  )
+async function fetchAllPages(pathWithQuery = '') {
+  // pathWithQuery = '/api/messages/?user=A' or '/api/messages/?user=A&page=2'
+  let out = []
+  let next = `${API_BASE}${pathWithQuery}`
+  while (next) {
+    // call using full url: safeFetch accepts full urls
+    const parsed = await safeFetch(next, { method: 'GET' })
+    // DRF paginated response: { count, next, previous, results: [...] }
+    if (Array.isArray(parsed)) {
+      // If backend returned array (non-paginated) just return it
+      out = out.concat(parsed)
+      break
+    } else if (parsed && Array.isArray(parsed.results)) {
+      out = out.concat(parsed.results)
+      next = parsed.next || null
+    } else {
+      // unexpected shape: try to return what we have
+      break
+    }
+  }
+  return out
 }
 
+/* -------------------------
+   Exported API functions (real backend)
+   ------------------------- */
+
+/**
+ * getMessagesByUser(userId)
+ * Returns an ARRAY of message objects (flattened across pages)
+ */
+export async function getMessagesByUser(userId) {
+  if (!userId) return []
+  const q = `/api/messages/?user=${encodeURIComponent(userId)}`
+  return await fetchAllPages(q)
+}
+
+/**
+ * postMessage(payload)
+ * payload: { user: 'A'|'B'|..., userName?: 'Display Name', text: '...' }
+ * returns parsed JSON from backend or throws
+ */
 export async function postMessage(payload) {
+  if (!payload || !payload.user || !payload.text) {
+    throw new Error('postMessage expects payload with user and text')
+  }
   try {
-    const res = await fetch(`${API_BASE}/api/messages/`, {
+    return await safeFetch(`/api/messages/`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'application/json'
+      },
       body: JSON.stringify(payload)
     })
-    if (!res.ok) throw new Error('postMessage failed')
-    return await res.json()
-  } catch (e) {
-    console.warn('postMessage fallback', e)
-    const now = new Date().toISOString()
-    // fallback responses (same sets as backend)
-    const responsesA = [
-      "Obrigado, Usuário A. Em breve nossa equipe retornará.",
-      "Recebemos sua mensagem, Usuário A — já encaminhamos para o time.",
-      "Perfeito, Usuário A! Em instantes alguém irá falar com você.",
-      "Sua solicitação foi registrada, Usuário A. Acompanhe por aqui.",
-      "Obrigado! Um especialista entrará em contato em breve, Usuário A."
-    ]
-    const responsesB = [
-      "Recebido, Usuário B. Um especialista responderá logo.",
-      "Mensagem entregue, Usuário B — estamos analisando.",
-      "Ótimo, Usuário B. Em breve teremos retorno.",
-      "Sua demanda foi registrada, Usuário B. Fique atento às atualizações.",
-      "Obrigado, Usuário B. Já repassamos ao time responsável."
-    ]
-    const resp = payload.user === 'A' ? responsesA[Math.floor(Math.random()*responsesA.length)] : responsesB[Math.floor(Math.random()*responsesB.length)]
-    return {
-      id: Math.floor(Math.random() * 100000),
-      user: payload.user,
-      text: payload.text,
-      response_text: resp,
-      created_at: now,
-      response_id: `${Math.floor(Math.random()*100000)}-r`
-    }
+  } catch (err) {
+    // rethrow so caller can catch and surface
+    throw err
   }
 }
 
-
+/**
+ * markMessagesViewed(userId)
+ * backend endpoint expects POST to /api/messages/mark_viewed/?user=...
+ * returns parsed JSON from backend
+ */
 export async function markMessagesViewed(userId) {
-  // try backend endpoint, but if FORCE_MOCK or failure -> mockMarkMessagesViewed
-  return await callFetchIfAllowed(`/api/messages/mark_viewed/?user=${encodeURIComponent(userId)}`, {
-    method: 'POST'
-  }, () => mockMarkMessagesViewed(userId))
+  if (!userId) return null
+  try {
+    return await safeFetch(`/api/messages/mark_viewed/?user=${encodeURIComponent(userId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' }
+    })
+  } catch (err) {
+    throw err
+  }
 }
 
+/**
+ * deleteHistory(userId)
+ * backend expects POST to /api/messages/delete_history/ with body {"user": "..."}
+ */
 export async function deleteHistory(userId) {
-  return await callFetchIfAllowed(`/api/messages/delete_history/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user: userId })
-  }, () => mockDeleteHistory(userId))
+  if (!userId) throw new Error('deleteHistory requires userId')
+  try {
+    return await safeFetch(`/api/messages/delete_history/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8', Accept: 'application/json' },
+      body: JSON.stringify({ user: userId })
+    })
+  } catch (err) {
+    throw err
+  }
 }
 
 export default { getMessagesByUser, postMessage, markMessagesViewed, deleteHistory }

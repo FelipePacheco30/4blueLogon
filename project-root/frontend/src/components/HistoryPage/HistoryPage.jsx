@@ -81,29 +81,33 @@ export default function HistoryPage() {
     return out
   }
 
-  async function fetchMessages(overrideDirection) {
-    setLoading(true)
-    setError(null)
-    try {
-      const dir = overrideDirection !== undefined ? overrideDirection : direction
-      const res = await api.getMessagesByUser(userId, { search: search || undefined, direction: dir })
+ // (substitua a função fetchMessages por esta versão mais robusta)
+async function fetchMessages(overrideDirection) {
+  setLoading(true)
+  setError(null)
+  try {
+    const dir = overrideDirection !== undefined ? overrideDirection : direction
+    const res = await api.getMessagesByUser(userId, { search: search || undefined, direction: dir })
 
-      let arr = Array.isArray(res) ? res.slice() : []
+    // normalize response to array
+    let arr = Array.isArray(res) ? res.slice() : (res && Array.isArray(res.data) ? res.data.slice() : [])
+    if (!Array.isArray(arr)) arr = []
 
-      arr = applyLocalFilters(arr, { searchTerm: search, dir })
+    arr = applyLocalFilters(arr, { searchTerm: search, dir })
 
-      const sorted = arr.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const sorted = arr.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
-      // reset page to 1 whenever we load a fresh set (calling component logic)
-      setCurrentPage(1)
-      setMessages(sorted)
-    } catch (e) {
-      setError('Erro ao buscar mensagens')
-      console.error(e)
-    } finally {
-      setLoading(false)
-    }
+    // reset page to 1 whenever we load a fresh set (calling component logic)
+    setCurrentPage(1)
+    setMessages(sorted)
+  } catch (e) {
+    setError('Erro ao buscar mensagens')
+    console.error(e)
+  } finally {
+    setLoading(false)
   }
+}
+
 
   function formatDateNoSeconds(iso) {
     if (!iso) return ''

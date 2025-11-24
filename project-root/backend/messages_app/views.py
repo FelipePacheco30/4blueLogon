@@ -1,108 +1,109 @@
-# backend/messages_app/views.py
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
+# messages_app/views.py
+from rest_framework import generics, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Q
+
 from .models import Message
 from .serializers import MessageSerializer
-import random
 
-class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all().order_by('created_at')
+class MessageListCreateView(generics.ListCreateAPIView):
+    """
+    GET /api/messages/?user=A[&search=...&direction=sent|received&page=...]
+    POST /api/messages/  with body { user, user_name?, text }
+    """
     serializer_class = MessageSerializer
+    queryset = Message.objects.all()
 
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.query_params.get('user')
-        if user in ['A', 'B']:
-            qs = qs.filter(user=user)
-
-        direction = self.request.query_params.get('direction')
-        if direction in ['sent', 'received']:
-            qs = qs.filter(direction=direction)
-
         search = self.request.query_params.get('search')
+        direction = self.request.query_params.get('direction')
+        if user:
+            qs = qs.filter(user=user)
+        if direction in ('sent', 'received'):
+            qs = qs.filter(direction=direction)
         if search:
-            search = search.strip()
-            qs = qs.filter(
-                Q(text__icontains=search) | Q(response_text__icontains=search)
-            )
-
+            q = search.strip()
+            qs = qs.filter(Q(text__icontains=q) | Q(response_text__icontains=q))
+        qs = qs.order_by('created_at')  # ascending
         return qs
 
     def create(self, request, *args, **kwargs):
-        """
-        Create a user message and generate a mock system response.
-        Response text chosen randomly from a set of 5 messages.
-        """
-        user = request.data.get('user')
-        text = request.data.get('text', '')
+        data = request.data or {}
+        user = data.get('user')
+        text = data.get('text', '')
+        user_name = data.get('user_name', '') or ''
+        if not user or not text:
+            return Response({'detail': 'user and text required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if user not in ['A', 'B']:
-            return Response({'detail': "Field 'user' must be 'A' or 'B'."}, status=status.HTTP_400_BAD_REQUEST)
-        if not isinstance(text, str) or text.strip() == '':
-            return Response({'detail': "Field 'text' must be a non-empty string."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # create the user-sent message (no response_text stored here)
-        user_msg = Message.objects.create(
+        # Create user message
+        msg = Message.objects.create(
             user=user,
+            user_name=user_name,
             text=text,
             direction='sent',
-            viewed=False,
+            viewed=False
         )
 
-        # 5 possible responses (customize as needed)
-        responses_for_A = [
-            "Obrigado, Usuário A. Em breve nossa equipe retornará.",
-            "Recebemos sua mensagem, Usuário A — já encaminhamos para o time.",
-            "Perfeito, Usuário A! Em instantes alguém irá falar com você.",
-            "Sua solicitação foi registrada, Usuário A. Acompanhe por aqui.",
-            "Obrigado! Um especialista entrará em contato em breve, Usuário A."
+        # Create a system response message (simulate auto-reply)
+        display_name = user_name or (f'Usuário {user}')
+        auto_responses = [
+            f"Obrigado, {display_name}. Em breve nossa equipe retornará.",
+            f"Recebemos sua mensagem, {display_name} — já encaminhamos para o time.",
+            f"Perfeito, {display_name}! Em instantes alguém irá falar com você.",
+            f"Sua solicitação foi registrada, {display_name}. Acompanhe por aqui.",
+            f"Obrigado! Um especialista entrará em contato em breve, {display_name}.",
         ]
-        responses_for_B = [
-            "Recebido, Usuário B. Um especialista responderá logo.",
-            "Mensagem entregue, Usuário B — estamos analisando.",
-            "Ótimo, Usuário B. Em breve teremos retorno.",
-            "Sua demanda foi registrada, Usuário B. Fique atento às atualizações.",
-            "Obrigado, Usuário B. Já repassamos ao time responsável."
-        ]
+        import random
+        resp_text = random.choice(auto_responses)
 
-        if user == 'A':
-            response_text = random.choice(responses_for_A)
-        else:
-            response_text = random.choice(responses_for_B)
-
-        # create corresponding system response message (direction='received')
-        resp_msg = Message.objects.create(
+        resp = Message.objects.create(
             user=user,
-            text=response_text,
-            response_text='',
+            user_name=user_name,
+            text=resp_text,
             direction='received',
-            viewed=False,
+            viewed=False
         )
 
-        # serialize the user message (without response_text stored)
-        serializer = self.get_serializer(user_msg)
-        data = serializer.data
-        data['response_text'] = response_text
-        data['response_id'] = resp_msg.id
+        out = {
+            'id': msg.id,
+            'user': msg.user,
+            'user_name': msg.user_name,
+            'text': msg.text,
+            'response_text': resp_text,
+            'created_at': msg.created_at,
+            'response_id': resp.id
+        }
+        return Response(out, status=status.HTTP_201_CREATED)
 
-        return Response(data, status=status.HTTP_201_CREATED)
-
-    @action(detail=False, methods=['post'])
-    def mark_viewed(self, request):
+# messages_app/views.py (continued)
+class MarkViewedView(APIView):
+    """
+    POST /api/messages/mark_viewed/?user=A
+    Marks all messages for given user as viewed.
+    Accepts query param 'user'. Returns { changed: n }.
+    """
+    def post(self, request):
         user = request.query_params.get('user')
-        if user not in ['A', 'B']:
-            return Response({'detail': "query param 'user' required and must be 'A' or 'B'."}, status=status.HTTP_400_BAD_REQUEST)
+        if not user:
+            return Response({'detail': 'user query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        msgs = Message.objects.filter(user=user, direction__in=['received', 'sent'])
-        msgs.update(viewed=True)
-        return Response({'marked': True})
+        msgs = Message.objects.filter(user=user, viewed=False)
+        count = msgs.update(viewed=True)
+        return Response({'changed': count}, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'])
-    def delete_history(self, request):
-        user = request.data.get('user')
-        if user not in ['A', 'B']:
-            return Response({'detail': "body 'user' required and must be 'A' or 'B'."}, status=status.HTTP_400_BAD_REQUEST)
-        deleted_count, _ = Message.objects.filter(user=user).delete()
-        return Response({'deleted': True, 'deleted_count': deleted_count})
+
+class DeleteHistoryView(APIView):
+    """
+    POST /api/messages/delete_history/
+    JSON body: { "user": "A" } - deletes messages for that user
+    """
+    def post(self, request):
+        user = request.data.get('user') if request.data else None
+        if not user:
+            return Response({'detail': 'user field required in JSON body'}, status=status.HTTP_400_BAD_REQUEST)
+
+        deleted, _ = Message.objects.filter(user=user).delete()
+        return Response({'deleted_count': deleted}, status=status.HTTP_200_OK)

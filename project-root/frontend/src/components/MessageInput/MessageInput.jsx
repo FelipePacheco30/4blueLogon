@@ -13,6 +13,7 @@ export default function MessageInput({ onSend, placeholderWhite = false }) {
       setText('')
     } catch (e) {
       console.error(e)
+      // optionally show a user-visible error here
     } finally {
       setSending(false)
     }

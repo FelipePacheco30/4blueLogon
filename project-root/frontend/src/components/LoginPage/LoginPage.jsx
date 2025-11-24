@@ -2,17 +2,17 @@ import React, { useContext, useState } from 'react'
 import { AuthContext } from '../../context/AuthContext'
 
 export default function LoginPage() {
-  const { login, availableUsers = [] } = useContext(AuthContext)
+  const { login, availableUsers = [], addAccount } = useContext(AuthContext)
 
   // selection: existing user id (A/B) or null
   const [selected, setSelected] = useState(availableUsers[0]?.id || null)
   const [submitting, setSubmitting] = useState(false)
 
-  // panels for add/create (visual only)
+  // panels for add/create (visual + minimal functional)
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [showCreatePanel, setShowCreatePanel] = useState(false)
 
-  // form states (visual only)
+  // form states (visual + minimal functional)
   const [addName, setAddName] = useState('')
   const [addPass, setAddPass] = useState('')
   const [createName, setCreateName] = useState('')
@@ -25,7 +25,7 @@ export default function LoginPage() {
     setSubmitting(true)
     await new Promise(r => setTimeout(r, 450))
     try {
-      login(selected)
+      await login(selected)
     } catch (err) {
       console.warn('login not available or failed (visual)', err)
     } finally {
@@ -33,21 +33,60 @@ export default function LoginPage() {
     }
   }
 
-  function handleAddEnter(e) {
+  // Add (quick enter) — creates a new account and logs it in.
+  async function handleAddEnter(e) {
     e.preventDefault()
-    console.log('Visual Enter (Adicionar conta):', { name: addName, pass: addPass })
+    if (!addName || addName.trim().length < 2) {
+      alert('Informe um nome válido para a conta (mínimo 2 caracteres).')
+      return
+    }
+
+    // create simple id (U + timestamp) — unique for demo
+    const id = `U${Date.now()}`
+    // flag hasPassword true if a pass was provided (visual only)
+    addAccount(id, addName.trim(), { hasPassword: !!addPass })
+    // auto-login the created account
+    setSubmitting(true)
+    await new Promise(r => setTimeout(r, 300))
+    try {
+      await login(id)
+    } catch (err) {
+      console.warn('auto-login failed (visual)', err)
+    } finally {
+      setSubmitting(false)
+    }
+
+    // clear visual form state
     setAddName('')
     setAddPass('')
     setShowAddPanel(false)
   }
 
-  function handleCreateAccount(e) {
+  // Create account flow (more fields) — creates and logs in the user
+  async function handleCreateAccount(e) {
     e.preventDefault()
+    if (!createName || createName.trim().length < 2) {
+      alert('Informe um nome válido para a conta (mínimo 2 caracteres).')
+      return
+    }
     if (createPass !== createConfirm) {
       alert('As senhas não conferem (visual).')
       return
     }
-    console.log('Visual Criar conta:', { name: createName, pass: createPass })
+
+    const id = `U${Date.now()}`
+    addAccount(id, createName.trim(), { hasPassword: !!createPass })
+    setSubmitting(true)
+    await new Promise(r => setTimeout(r, 350))
+    try {
+      await login(id)
+    } catch (err) {
+      console.warn('auto-login failed (visual)', err)
+    } finally {
+      setSubmitting(false)
+    }
+
+    // reset visual form
     setCreateName('')
     setCreatePass('')
     setCreateConfirm('')

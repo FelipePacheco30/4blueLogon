@@ -1,9 +1,14 @@
-import React, { useContext, useState } from 'react'
+// src/components/SettingsPage/SettingsPage.jsx
+import React, { useContext, useEffect, useState } from 'react'
 import { AuthContext } from '../../context/AuthContext'
+import api from '../../services/api'
 
 export default function SettingsPage() {
-  const { user } = useContext(AuthContext) || {}
+  const { user, updateUserName, resetUserName } = useContext(AuthContext) || {}
   const currentName = user?.name || ''
+
+  // Consider default accounts A/B as accounts without password
+  const isDefaultAccount = user?.id === 'A' || user?.id === 'B'
 
   // accordion state
   const [openUsername, setOpenUsername] = useState(false)
@@ -24,9 +29,15 @@ export default function SettingsPage() {
   // delete history
   const [deleteConfirmed, setDeleteConfirmed] = useState(false)
   const [deleteMsg, setDeleteMsg] = useState(null)
+  const [busy, setBusy] = useState(false)
 
-  // simulate submit handlers (UI only)
-  function handleUsernameConfirm(e) {
+  // prefill current username when opening username section
+  useEffect(() => {
+    if (openUsername) setUsernameCurrent(currentName)
+  }, [openUsername, currentName])
+
+  // handle username update
+  async function handleUsernameConfirm(e) {
     e.preventDefault()
     setUsernameMsg(null)
 
@@ -40,12 +51,25 @@ export default function SettingsPage() {
       return
     }
 
-    setUsernameMsg({ type: 'success', text: 'Nome atualizado com sucesso (simulado).' })
-    setUsernameCurrent('')
-    setUsernameNew('')
+    setBusy(true)
+    await new Promise(r => setTimeout(r, 250))
+    try {
+      // update through context (simulated persistence)
+      updateUserName && updateUserName(user.id, usernameNew.trim())
+      setUsernameMsg({ type: 'success', text: 'Nome atualizado com sucesso.' })
+      setUsernameCurrent('')
+      setUsernameNew('')
+      setTimeout(() => setOpenUsername(false), 700)
+    } catch (err) {
+      console.error(err)
+      setUsernameMsg({ type: 'error', text: 'Falha ao atualizar o nome (simulado).' })
+    } finally {
+      setBusy(false)
+    }
   }
 
-  function handlePasswordConfirm(e) {
+  // handle password change (only for non-default accounts)
+  async function handlePasswordConfirm(e) {
     e.preventDefault()
     setPwdMsg(null)
 
@@ -64,11 +88,35 @@ export default function SettingsPage() {
       return
     }
 
+    setBusy(true)
+    await new Promise(r => setTimeout(r, 350))
+    // simulated success (no real persistence here)
     setPwdMsg({ type: 'success', text: 'Senha alterada com sucesso (simulado).' })
     setPwdCurrent(''); setPwdNew(''); setPwdConfirm('')
+    setTimeout(() => setOpenPassword(false), 700)
+    setBusy(false)
   }
 
-  function handleDeleteHistory(e) {
+  // reset to default username (calls context)
+  async function handleResetToDefault(e) {
+    e?.preventDefault && e.preventDefault()
+    if (!user?.id) return
+    setBusy(true)
+    await new Promise(r => setTimeout(r, 220))
+    try {
+      resetUserName && resetUserName(user.id)
+      setUsernameMsg({ type: 'success', text: 'Nome restaurado ao padrão.' })
+      setTimeout(() => setOpenUsername(false), 700)
+    } catch (err) {
+      console.error(err)
+      setUsernameMsg({ type: 'error', text: 'Falha ao restaurar nome (simulado).' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // deleteHistory -> call api.deleteHistory (uses mock fallback automatically)
+  async function handleDeleteHistory(e) {
     e.preventDefault()
     setDeleteMsg(null)
 
@@ -77,9 +125,18 @@ export default function SettingsPage() {
       return
     }
 
-    // simulate deletion
-    setDeleteMsg({ type: 'success', text: 'Histórico excluído (simulado).' })
-    setDeleteConfirmed(false)
+    setBusy(true)
+    try {
+      await api.deleteHistory(user?.id)
+      setDeleteMsg({ type: 'success', text: 'Histórico excluído (simulado).' })
+      setDeleteConfirmed(false)
+      setTimeout(() => setOpenDelete(false), 700)
+    } catch (err) {
+      console.error(err)
+      setDeleteMsg({ type: 'error', text: 'Falha ao excluir histórico.' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -103,7 +160,7 @@ export default function SettingsPage() {
               <div style={{ fontWeight: 800, color: '#fff' }}>Editar nome de usuário</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>Digite seu nome atual e o novo nome desejado.</div>
             </div>
-            <div className={`chev ${openUsername ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>▾</div>
+            <div className={`chev ${openUsername ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>{openUsername ? '▾' : '▸'}</div>
           </header>
 
           <div className={`settings-body ${openUsername ? 'open' : ''}`}>
@@ -127,8 +184,11 @@ export default function SettingsPage() {
               />
 
               <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                <button type="submit" className="btn-enter" disabled={!usernameCurrent || !usernameNew}>Confirmar</button>
+                <button type="submit" className="btn-enter" disabled={!usernameCurrent || !usernameNew || busy}>
+                  {busy ? 'Salvando...' : 'Confirmar'}
+                </button>
                 <button type="button" className="btn-secondary" onClick={() => { setUsernameCurrent(''); setUsernameNew(''); setUsernameMsg(null) }}>Limpar</button>
+                <button type="button" className="btn-secondary" onClick={handleResetToDefault} style={{ marginLeft: 'auto' }}>Restaurar padrão</button>
               </div>
 
               {usernameMsg && (
@@ -147,76 +207,80 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Change password section */}
-        <section className="settings-section" aria-labelledby="change-password-heading">
-          <header
-            id="change-password-heading"
-            className="settings-header"
-            role="button"
-            aria-expanded={openPassword}
-            onClick={() => { setOpenPassword(v => !v) }}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenPassword(v => !v) }}
-            tabIndex={0}
-          >
-            <div>
-              <div style={{ fontWeight: 800, color: '#fff' }}>Trocar senha</div>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>Insira a senha atual e defina uma nova senha.</div>
-            </div>
-            <div className={`chev ${openPassword ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>▾</div>
-          </header>
-
-          <div className={`settings-body ${openPassword ? 'open' : ''}`}>
-            <form onSubmit={handlePasswordConfirm} className="panel" aria-label="Trocar senha - formulário">
-              <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Senha atual</label>
-              <input
-                type="password"
-                className="input"
-                value={pwdCurrent}
-                onChange={(e) => setPwdCurrent(e.target.value)}
-                placeholder="Senha atual"
-                aria-label="Senha atual"
-              />
-
-              <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Nova senha</label>
-              <input
-                type="password"
-                className="input"
-                value={pwdNew}
-                onChange={(e) => setPwdNew(e.target.value)}
-                placeholder="Nova senha"
-                aria-label="Nova senha"
-              />
-
-              <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Confirmar nova senha</label>
-              <input
-                type="password"
-                className="input"
-                value={pwdConfirm}
-                onChange={(e) => setPwdConfirm(e.target.value)}
-                placeholder="Confirmar nova senha"
-                aria-label="Confirmar nova senha"
-              />
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                <button type="submit" className="btn-enter" disabled={!pwdCurrent || !pwdNew || !pwdConfirm}>Confirmar</button>
-                <button type="button" className="btn-secondary" onClick={() => { setPwdCurrent(''); setPwdNew(''); setPwdConfirm(''); setPwdMsg(null) }}>Limpar</button>
+        {/* Change password section: hidden for default A/B accounts */}
+        {!isDefaultAccount && (
+          <section className="settings-section" aria-labelledby="change-password-heading">
+            <header
+              id="change-password-heading"
+              className="settings-header"
+              role="button"
+              aria-expanded={openPassword}
+              onClick={() => { setOpenPassword(v => !v) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenPassword(v => !v) }}
+              tabIndex={0}
+            >
+              <div>
+                <div style={{ fontWeight: 800, color: '#fff' }}>Trocar senha</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>Insira a senha atual e defina uma nova senha.</div>
               </div>
+              <div className={`chev ${openPassword ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>{openPassword ? '▾' : '▸'}</div>
+            </header>
 
-              {pwdMsg && (
-                <div style={{
-                  marginTop: 10,
-                  padding: 10,
-                  borderRadius: 8,
-                  background: pwdMsg.type === 'success' ? 'rgba(10,120,60,0.12)' : 'rgba(183,40,40,0.08)',
-                  color: pwdMsg.type === 'success' ? '#9EE6B9' : '#FFCCCC',
-                  fontWeight: 700
-                }}>
-                  {pwdMsg.text}
+            <div className={`settings-body ${openPassword ? 'open' : ''}`}>
+              <form onSubmit={handlePasswordConfirm} className="panel" aria-label="Trocar senha - formulário">
+                <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Senha atual</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={pwdCurrent}
+                  onChange={(e) => setPwdCurrent(e.target.value)}
+                  placeholder="Senha atual"
+                  aria-label="Senha atual"
+                />
+
+                <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Nova senha</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={pwdNew}
+                  onChange={(e) => setPwdNew(e.target.value)}
+                  placeholder="Nova senha"
+                  aria-label="Nova senha"
+                />
+
+                <label style={{ fontSize: 13, color: 'rgba(255,255,255,0.95)' }}>Confirmar nova senha</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={pwdConfirm}
+                  onChange={(e) => setPwdConfirm(e.target.value)}
+                  placeholder="Confirmar nova senha"
+                  aria-label="Confirmar nova senha"
+                />
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                  <button type="submit" className="btn-enter" disabled={!pwdCurrent || !pwdNew || !pwdConfirm || busy}>
+                    {busy ? 'Processando...' : 'Confirmar'}
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={() => { setPwdCurrent(''); setPwdNew(''); setPwdConfirm(''); setPwdMsg(null) }}>Limpar</button>
                 </div>
-              )}
-            </form>
-          </div>
-        </section>
+
+                {pwdMsg && (
+                  <div style={{
+                    marginTop: 10,
+                    padding: 10,
+                    borderRadius: 8,
+                    background: pwdMsg.type === 'success' ? 'rgba(10,120,60,0.12)' : 'rgba(183,40,40,0.08)',
+                    color: pwdMsg.type === 'success' ? '#9EE6B9' : '#FFCCCC',
+                    fontWeight: 700
+                  }}>
+                    {pwdMsg.text}
+                  </div>
+                )}
+              </form>
+            </div>
+          </section>
+        )}
 
         {/* Delete history section */}
         <section className="settings-section" aria-labelledby="delete-history-heading">
@@ -233,7 +297,7 @@ export default function SettingsPage() {
               <div style={{ fontWeight: 800, color: '#fff' }}>Excluir histórico</div>
               <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>Remover todas as mensagens do seu histórico (simulado).</div>
             </div>
-            <div className={`chev ${openDelete ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>▾</div>
+            <div className={`chev ${openDelete ? 'open' : ''}`} aria-hidden style={{ color: '#fff' }}>{openDelete ? '▾' : '▸'}</div>
           </header>
 
           <div className={`settings-body ${openDelete ? 'open' : ''}`}>
@@ -251,7 +315,9 @@ export default function SettingsPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                <button type="submit" className="btn-enter" style={{ background: 'var(--ui-yellow)', color: '#fff' }}>Excluir histórico</button>
+                <button type="submit" className="btn-enter" style={{ background: 'var(--ui-yellow)', color: '#fff' }} disabled={busy}>
+                  {busy ? 'Processando...' : 'Excluir histórico'}
+                </button>
                 <button type="button" className="btn-secondary" onClick={() => { setDeleteConfirmed(false); setDeleteMsg(null) }}>Cancelar</button>
               </div>
 
