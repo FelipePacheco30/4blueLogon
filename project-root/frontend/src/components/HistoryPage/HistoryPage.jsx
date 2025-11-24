@@ -6,6 +6,8 @@ import api from '../../services/api'
 export default function HistoryPage() {
   const { user } = useContext(AuthContext)
   const userId = user?.id
+
+  // mensagens / loading / filtros
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -13,22 +15,25 @@ export default function HistoryPage() {
   const [error, setError] = useState(null)
   const [openFilter, setOpenFilter] = useState(false)
   const filterRef = useRef(null)
-  const [currentPage, setCurrentPage] = useState(1); // página atual
-  const itemsPerPage = 5; // mensagens por página
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentMessages = messages.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(messages.length / itemsPerPage);
+
+  // paginação
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 5
 
   useEffect(() => {
     if (!userId) return
+    // quando usuario muda, buscar e resetar pagina
+    setCurrentPage(1)
     fetchMessages()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, direction])
 
   useEffect(() => {
     const t = setTimeout(() => {
-      if (userId) fetchMessages()
+      if (userId) {
+        setCurrentPage(1)
+        fetchMessages()
+      }
     }, 300)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -40,6 +45,7 @@ export default function HistoryPage() {
       if (!userId) return
       const fromUser = e?.detail?.user
       if (fromUser && fromUser !== userId) return
+      setCurrentPage(1)
       fetchMessages()
     }
     window.addEventListener('messages:updated', onUpdated)
@@ -87,8 +93,10 @@ export default function HistoryPage() {
       arr = applyLocalFilters(arr, { searchTerm: search, dir })
 
       const sorted = arr.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      setCurrentPage(1);
-      setMessages(sorted);
+
+      // reset page to 1 whenever we load a fresh set (calling component logic)
+      setCurrentPage(1)
+      setMessages(sorted)
     } catch (e) {
       setError('Erro ao buscar mensagens')
       console.error(e)
@@ -102,6 +110,12 @@ export default function HistoryPage() {
     const d = new Date(iso)
     return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
+
+  // PAGINAÇÃO - índices e fatia para a página atual
+  const indexOfLastItem = currentPage * itemsPerPage
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage
+  const currentMessages = messages.slice(indexOfFirstItem, indexOfLastItem)
+  const totalPages = Math.max(1, Math.ceil(messages.length / itemsPerPage))
 
   return (
     <div className="pattern-postlogin" style={{ padding: 24, minHeight: '100vh' }}>
@@ -224,43 +238,54 @@ export default function HistoryPage() {
                   </div>
                 ))}
               </div>
+
+              {/* Paginação */}
+              {messages.length > itemsPerPage && (
+                <div className="history-pagination" role="navigation" aria-label="Paginação de histórico">
+                  <button
+                    type="button"
+                    className="page-arrow"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    aria-label="Página anterior"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M15 6l-6 6 6 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+
+                  {[...Array(totalPages)].map((_, idx) => {
+                    const page = idx + 1
+                    const active = page === currentPage
+                    return (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setCurrentPage(page)}
+                        className={`page-num ${active ? '' : 'inactive'}`}
+                        aria-current={active ? 'page' : undefined}
+                        aria-label={`Página ${page}`}
+                      >
+                        {page}
+                      </button>
+                    )
+                  })}
+
+                  <button
+                    type="button"
+                    className="page-arrow"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    aria-label="Próxima página"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M9 6l6 6-6 6" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
+              )}
+
             </div>
-                {messages.length > itemsPerPage && (
-  <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-    <button
-      disabled={currentPage === 1}
-      onClick={() => setCurrentPage(prev => prev - 1)}
-      style={{ padding: '6px 12px', borderRadius: 6, background: '#444', color: '#fff', border: 'none', cursor: 'pointer', opacity: currentPage === 1 ? 0.5 : 1 }}
-    >
-      Anterior
-    </button>
-
-    {[...Array(totalPages)].map((_, idx) => (
-      <button
-        key={idx}
-        onClick={() => setCurrentPage(idx + 1)}
-        style={{
-          padding: '6px 12px',
-          borderRadius: 6,
-          border: 'none',
-          cursor: 'pointer',
-          background: currentPage === idx + 1 ? '#FFD54A' : '#333',
-          color: currentPage === idx + 1 ? '#000' : '#fff'
-        }}
-      >
-        {idx + 1}
-      </button>
-    ))}
-
-    <button
-      disabled={currentPage === totalPages}
-      onClick={() => setCurrentPage(prev => prev + 1)}
-      style={{ padding: '6px 12px', borderRadius: 6, background: '#444', color: '#fff', border: 'none', cursor: 'pointer', opacity: currentPage === totalPages ? 0.5 : 1 }}
-    >
-      Próximo
-    </button>
-  </div>
-)}
 
           </div>
         </div>

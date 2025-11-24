@@ -2,22 +2,64 @@ import React, { useContext, useState } from 'react'
 import { AuthContext } from '../../context/AuthContext'
 
 export default function LoginPage() {
-  const { login, availableUsers } = useContext(AuthContext)
-  const [selected, setSelected] = useState(availableUsers[0].id)
+  const { login, availableUsers = [] } = useContext(AuthContext)
+
+  // selection: existing user id (A/B) or null
+  const [selected, setSelected] = useState(availableUsers[0]?.id || null)
   const [submitting, setSubmitting] = useState(false)
+
+  // panels for add/create (visual only)
+  const [showAddPanel, setShowAddPanel] = useState(false)
+  const [showCreatePanel, setShowCreatePanel] = useState(false)
+
+  // form states (visual only)
+  const [addName, setAddName] = useState('')
+  const [addPass, setAddPass] = useState('')
+  const [createName, setCreateName] = useState('')
+  const [createPass, setCreatePass] = useState('')
+  const [createConfirm, setCreateConfirm] = useState('')
 
   async function handleLogin(e) {
     e.preventDefault()
+    if (!selected) return
     setSubmitting(true)
     await new Promise(r => setTimeout(r, 450))
-    login(selected)
-    setSubmitting(false)
+    try {
+      login(selected)
+    } catch (err) {
+      console.warn('login not available or failed (visual)', err)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  function handleAddEnter(e) {
+    e.preventDefault()
+    console.log('Visual Enter (Adicionar conta):', { name: addName, pass: addPass })
+    setAddName('')
+    setAddPass('')
+    setShowAddPanel(false)
+  }
+
+  function handleCreateAccount(e) {
+    e.preventDefault()
+    if (createPass !== createConfirm) {
+      alert('As senhas não conferem (visual).')
+      return
+    }
+    console.log('Visual Criar conta:', { name: createName, pass: createPass })
+    setCreateName('')
+    setCreatePass('')
+    setCreateConfirm('')
+    setShowCreatePanel(false)
+    setShowAddPanel(false)
   }
 
   return (
     <div className="login-split">
       <div className="login-left pattern-login">
         <div className="content">
+          {/* preserve original welcome text */}
           <h2 className="bemvindo">Bem-vindo</h2>
           <div className="big-title">Transforme atendimento em resultado.</div>
           <p className="subtitle mt-4">O 4blue Chat entrega respostas personalizadas e histórico — experiência fluida.</p>
@@ -28,9 +70,9 @@ export default function LoginPage() {
         <div className="login-card fade-in">
           <img src="/src/assets/logo-4blue-blue.png" alt="4blue" className="brand-logo" />
 
-          <p className="text-sm small-muted mb-4" style={{opacity:0.95}}>Escolha sua conta para começar</p>
+          <p className="text-sm small-muted mb-4" style={{ opacity: 0.95 }}>Escolha sua conta para começar</p>
 
-          <form onSubmit={handleLogin} className="w-full space-y-6">
+          <form onSubmit={handleLogin} className="w-full space-y-6" aria-label="Form de seleção de usuário">
             <div className="user-selection" role="radiogroup" aria-label="Escolha de usuário">
               {availableUsers.map((u) => {
                 const isSel = selected === u.id
@@ -38,7 +80,11 @@ export default function LoginPage() {
                   <div
                     key={u.id}
                     className={`user-tile ${isSel ? 'selected' : ''}`}
-                    onClick={() => setSelected(u.id)}
+                    onClick={() => {
+                      setSelected(u.id)
+                      setShowAddPanel(false)
+                      setShowCreatePanel(false)
+                    }}
                     aria-checked={isSel}
                     role="radio"
                     tabIndex={0}
@@ -52,16 +98,125 @@ export default function LoginPage() {
                   </div>
                 )
               })}
+
+              {/* Add account visual tile */}
+              <div
+                className="user-tile add-account"
+                role="button"
+                aria-pressed={showAddPanel}
+                tabIndex={0}
+                onClick={() => {
+                  setShowAddPanel(v => !v)
+                  setShowCreatePanel(false)
+                  setSelected(null)
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { setShowAddPanel(v => !v); setShowCreatePanel(false); setSelected(null) } }}
+                style={{ alignItems: 'center', gap: 8 }}
+              >
+                <div className="add-account-circle" aria-hidden>
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <div className="user-label">Adicionar conta</div>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <button type="submit" className="btn-enter flex-1" disabled={submitting}>
-                {submitting ? 'Entrando...' : 'Entrar'}
-              </button>
+            <div className="flex gap-2" style={{ width: '100%', justifyContent: 'center' }}>
+              {selected && (
+                <button type="submit" className="btn-enter flex-1" disabled={submitting} style={{ maxWidth: 360 }}>
+                  {submitting ? 'Entrando...' : 'Entrar'}
+                </button>
+              )}
+
+              {!selected && !showAddPanel && (
+                <button type="button" className="btn-enter" disabled style={{ opacity: 0.6, maxWidth: 360 }}>
+                  Selecione uma conta
+                </button>
+              )}
             </div>
 
-            <div className="text-xs small-muted mt-2" style={{opacity:0.85}}>Ao entrar você concorda com os termos — demonstração.</div>
+            <div className="text-xs small-muted mt-2" style={{ opacity: 0.85 }}>Ao entrar você concorda com os termos — demonstração.</div>
           </form>
+
+          {/* Panels area */}
+          <div style={{ width: '100%', marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+            {showAddPanel && (
+              <form onSubmit={handleAddEnter} className="panel fade-in" aria-label="Painel adicionar conta">
+                <input
+                  className="input inline"
+                  placeholder="Nome da conta"
+                  value={addName}
+                  onChange={(e) => setAddName(e.target.value)}
+                />
+                <input
+                  className="input inline"
+                  placeholder="Senha (visual)"
+                  type="password"
+                  value={addPass}
+                  onChange={(e) => setAddPass(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn-enter" style={{ flex: 1 }}>Entrar</button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreatePanel(true); setShowAddPanel(false) }}
+                    className="btn-secondary"
+                    style={{ flex: 1 }}
+                  >
+                    Criar conta
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {showCreatePanel && (
+              <form onSubmit={handleCreateAccount} className="panel fade-in" aria-label="Painel criar conta">
+                <input
+                  className="input inline"
+                  placeholder="Nome da conta"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                />
+                <input
+                  className="input inline"
+                  placeholder="Senha"
+                  type="password"
+                  value={createPass}
+                  onChange={(e) => setCreatePass(e.target.value)}
+                />
+                <input
+                  className="input inline"
+                  placeholder="Confirmar senha"
+                  type="password"
+                  value={createConfirm}
+                  onChange={(e) => setCreateConfirm(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button type="submit" className="btn-enter" style={{ flex: 1 }}>Criar conta</button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowCreatePanel(false); setShowAddPanel(true) }}
+                    className="btn-secondary"
+                    style={{ flex: 1 }}
+                  >
+                    Voltar
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* footer identical to post-login style */}
+          <footer className="app-footer" role="contentinfo" aria-label="Rodapé 4blue" style={{ marginTop: 18 }}>
+            <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
+              <div style={{ fontWeight: 700, color: '#fff' }}>4blue</div>
+              <div style={{ fontSize: 13, opacity: 0.95, color: '#fff' }}>© {new Date().getFullYear()} 4blue — Atendimento Simulado</div>
+              <div style={{ fontSize: 13, opacity: 0.9, color: '#fff' }}>Versão demo</div>
+            </div>
+          </footer>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { AuthContext } from '../../context/AuthContext'
 import logo from '../../assets/logo-4blue.png'
 import icon4white from '../../assets/4icon-white.png'
 
+/* Icon wrapper: reserva espaço consistente para o ícone (sem background) */
 const IconWrapper = ({ children }) => (
   <div style={{
     display: 'flex',
@@ -13,7 +14,7 @@ const IconWrapper = ({ children }) => (
     height: 44,
     minWidth: 44,
     minHeight: 44,
-    /* removido background e border */
+    boxSizing: 'border-box'
   }}>
     {children}
   </div>
@@ -50,8 +51,6 @@ const IconSettings = ({ color = 'currentColor' }) => (
     </svg>
   </IconWrapper>
 )
-
-
 
 const IconLogout = ({ color = 'currentColor' }) => (
   <IconWrapper>
@@ -105,9 +104,58 @@ export default function Sidebar() {
   const collapsedWidth = 72
   const expandedWidth = 220
 
+  /* helper: render a nav item row with icon on left and label centered in remaining space */
+  function NavRow({ to, onClick, Icon, label }) {
+    // when collapsed: center whole row (so icon centers)
+    const baseStyle = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '10px 12px',
+      color: '#fff',
+      textDecoration: 'none',
+      borderRadius: 10,
+      width: '100%',
+      boxSizing: 'border-box',
+      cursor: onClick ? 'pointer' : 'auto',
+      justifyContent: collapsed ? 'center' : 'flex-start' // <-- center when collapsed
+    }
+
+    // icon slot: left when expanded (flex-start), but still centered inside its box when collapsed
+    const iconContainerStyle = {
+      width: 44,
+      display: 'flex',
+      justifyContent: collapsed ? 'center' : 'flex-start'
+    }
+
+    // label area - visible only when expanded
+    const labelStyle = {
+      flex: 1,
+      textAlign: 'center',
+      fontWeight: 700,
+      display: collapsed ? 'none' : 'block'
+    }
+
+    return to ? (
+      <Link to={to} style={baseStyle}>
+        <div style={iconContainerStyle}>
+          <Icon />
+        </div>
+        <div style={labelStyle}>{label}</div>
+      </Link>
+    ) : (
+      <div onClick={onClick} style={baseStyle}>
+        <div style={iconContainerStyle}>
+          <Icon />
+        </div>
+        <div style={labelStyle}>{label}</div>
+      </div>
+    )
+  }
+
   return (
     <>
-      {/* mobile button */}
+      {/* mobile button (left corner) */}
       {isMobile && !mobileOpen && (
         <button
           onClick={() => setMobileOpen(true)}
@@ -116,7 +164,7 @@ export default function Sidebar() {
             position: 'fixed',
             top: 12,
             left: 12,
-            zIndex: 1000,
+            zIndex: 1100,
             background: '#FFD54A',
             border: 'none',
             padding: 10,
@@ -129,86 +177,100 @@ export default function Sidebar() {
         </button>
       )}
 
-      {/* desktop/mobile sidebar */}
       <aside
         className={`sidebar ${collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`}
         style={{
           background: 'linear-gradient(180deg,#052C4A,#0D5FA8)',
-          width: collapsed ? collapsedWidth : expandedWidth,
-          minWidth: collapsed ? collapsedWidth : expandedWidth,
+          width: collapsed ? `${collapsedWidth}px` : `${expandedWidth}px`,
+          minWidth: collapsed ? `${collapsedWidth}px` : `${expandedWidth}px`,
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
           padding: 16,
-          position: isMobile ? 'fixed' : 'relative',
-          left: isMobile && !mobileOpen ? -300 : 0,
+          position: 'fixed',
           top: 0,
+          transform: isMobile && !mobileOpen ? 'translateX(-110%)' : 'translateX(0)',
           zIndex: 999,
-          transition: 'all 0.3s ease'
+          transition: 'width 260ms cubic-bezier(.2,.9,.2,1), min-width 260ms cubic-bezier(.2,.9,.2,1), transform 260ms cubic-bezier(.2,.9,.2,1)',
+          willChange: 'width, transform',
+          boxSizing: 'border-box',
+          overflowX: 'hidden'
         }}
       >
-        {/* Logo */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-          <button onClick={() => setCollapsed(!collapsed)} style={{ background: 'transparent', border: 'none', padding: 0 }}>
+        {/* Logo / toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+          <button
+            onClick={() => setCollapsed(v => !v)}
+            aria-label="Toggle sidebar"
+            style={{ background: 'transparent', border: 'none', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
             <img src={collapsed ? icon4white : logo} alt="4blue" style={{ width: collapsed ? 56 : 120, height: 'auto', borderRadius: 12 }}/>
           </button>
         </div>
 
-       <nav style={{
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 24,
-  flexGrow: 1,
-  justifyContent: 'center',
-  alignItems: 'stretch', /* texto ocupa o espaço */
-}}>
-  <Link to="/chat" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#fff', textDecoration: 'none' }}>
-    <IconChat />
-    {!collapsed && <span style={{ fontWeight: 700, flex: 1, textAlign: 'center' }}>Chat</span>}
-  </Link>
-  <Link to="/historico" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#fff', textDecoration: 'none' }}>
-    <IconHistory />
-    {!collapsed && <span style={{ fontWeight: 700, flex: 1, textAlign: 'center' }}>Histórico</span>}
-  </Link>
-  <Link to="/configuracoes" style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#fff', textDecoration: 'none' }}>
-    <IconSettings />
-    {!collapsed && <span style={{ fontWeight: 700, flex: 1, textAlign: 'center' }}>Configurações</span>}
-  </Link>
-  <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
-    <IconLogout />
-    {!collapsed && <span style={{ fontWeight: 700, flex: 1, textAlign: 'center' }}>Sair</span>}
-  </button>
-</nav>
+        {/* Nav items: icon slot left (or centered when collapsed), label centered in remainder */}
+        <nav style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 18,
+          flexGrow: 1,
+          paddingTop: 8,
+          paddingLeft: 4,
+          paddingRight: 4,
+          alignItems: 'stretch',
+          justifyContent: 'center'
+        }}>
+          <NavRow to="/chat" Icon={IconChat} label="Chat" />
+          <NavRow to="/historico" Icon={IconHistory} label="Histórico" />
+          <NavRow to="/configuracoes" Icon={IconSettings} label="Configurações" />
+          <NavRow onClick={handleLogout} Icon={IconLogout} label="Sair" />
+        </nav>
 
-
-        {/* Footer user */}
-        <div ref={ddRef} style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, cursor: 'pointer', position: 'relative' }} onClick={() => setOpenDropdown(!openDropdown)}>
-          <div style={{
+        {/* Footer user (avatar always circle) */}
+        <div ref={ddRef} style={{
+          marginTop: 'auto',
+          display: 'flex',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          alignItems: 'center',
+          gap: 12,
+          cursor: 'pointer',
+          position: 'relative',
+          paddingTop: 8,
+          paddingBottom: 8
+        }} onClick={() => setOpenDropdown(!openDropdown)}>
+          <div className="account-avatar" style={{
             width: 56,
             height: 56,
-            borderRadius: '50%',
+            borderRadius: '50%',        // force circular
             overflow: 'hidden',
             background: '#fff',
             display: 'flex',
             justifyContent: 'center',
-            alignItems: 'center'
+            alignItems: 'center',
+            flexShrink: 0
           }}>
-            <img src="/src/assets/4icon.png" alt="user" style={{ width: '72%', height: 'auto', objectFit: 'contain' }} />
+            <img src="/src/assets/4icon.png" alt="user" style={{ width: '72%', height: 'auto', objectFit: 'contain', display: 'block' }} />
           </div>
-          {!collapsed && <div style={{ color: '#fff', fontWeight: 700, textAlign: 'center' }}>{user?.name || 'Usuário'}</div>}
+
+          {/* Name: centered vertically and horizontally in the remaining area */}
+          {!collapsed && (
+            <div style={{ color: '#fff', fontWeight: 700, textAlign: 'center', width: 'calc(100% - 80px)' }}>
+              {user?.name || 'Usuário'}
+            </div>
+          )}
 
           {/* Dropdown */}
           {openDropdown && (
             <div style={{
               position: 'absolute',
               bottom: 72,
-              left: collapsed ? '100%' : 0,
+              left: collapsed ? '100%' : 16,
               width: 260,
               background: '#fff',
               color: '#03417E',
               borderRadius: 12,
               boxShadow: '0 12px 36px rgba(2,20,42,0.18)',
-              zIndex: 200,
+              zIndex: 1200,
               padding: 8
             }}>
               <div style={{ fontSize: 14, padding: 8, color: '#666' }}>Alternar conta</div>

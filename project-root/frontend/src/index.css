@@ -32,15 +32,27 @@ html[data-sidebar-collapsed="true"] {
 }
 
 /* =========================
+   Global fixes for layout & overflow
+   ========================= */
+
+/* Ensure root fills viewport and avoid global horizontal scroll */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* =========================
    Body gradient: 75% brand-top then footer-blue
    ========================= */
 body {
   font-family: Poppins, Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-  margin: 0;
-  min-height: 100vh;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
   color: var(--text-dark);
+  min-height: 100vh;
 
   background: linear-gradient(180deg,
     var(--brand-top) 0%,
@@ -51,30 +63,40 @@ body {
 /* =========================
    Sidebar fixed and app main offset
    ========================= */
+/* Base .sidebar: fixed, full viewport height, no horizontal overflow */
 .sidebar {
   position: fixed;
   left: 0;
   top: 0;
-  bottom: 0; /* cobre até o final */
+  bottom: 0;
+  height: 100vh;
+  min-height: 100vh;
   width: var(--sidebar-width);
-  transition: width var(--anim-medium) ease;
+  transition: width var(--anim-medium) ease, transform 0.28s ease;
   background: linear-gradient(180deg, rgba(2,20,42,0.88), rgba(5,84,158,0.60));
   color: white;
-  z-index: 999; /* acima do footer */
+  z-index: 999;
   display:flex;
   flex-direction:column;
   padding-top: 16px;
+  overflow-y: auto;   /* vertical scroll only */
+  overflow-x: hidden; /* prevent horizontal scrollbar */
+  box-sizing: border-box;
 }
 
+/* Main app area respects sidebar width */
 .app-main {
   margin-left: var(--sidebar-width);
   transition: margin-left var(--anim-medium) ease;
   min-height: 100vh;
   display:flex;
   flex-direction:column;
+  box-sizing: border-box;
 }
 
-/* Patterns */
+/* =========================
+   Patterns
+   ========================= */
 .pattern-login { position: relative; overflow: hidden; }
 .pattern-login::before {
   content: "";
@@ -92,14 +114,15 @@ body {
 }
 .pattern-login > * { position: relative; z-index: 2; }
 
+/* Make post-login pattern STATIC relative to viewport so it does NOT stretch with content */
 .pattern-postlogin { position: relative; overflow: visible; }
 .pattern-postlogin::before {
   content: "";
-  position: absolute;
+  position: fixed;   /* FIXED in viewport - won't expand when content grows */
   left: 0;
-  right: 0;
-  top: -9%;
-  bottom: -9%;
+  top: 0;
+  width: 100%;
+  height: 100vh;
   z-index: 1;
   pointer-events: none;
   background-image: url('/src/assets/4icon-pattern.png');
@@ -112,7 +135,9 @@ body {
 }
 .pattern-postlogin > * { position: relative; z-index: 2; }
 
-/* Login layout */
+/* =========================
+   Login layout
+   ========================= */
 .login-split { min-height: 100vh; display:grid; grid-template-columns: 1fr 1fr; }
 @media (max-width: 980px){ .login-split { grid-template-columns: 1fr; } }
 
@@ -157,7 +182,9 @@ body {
 /* Enter button */
 .btn-enter { background: var(--ui-yellow); color: #000; border: none; padding: .9rem 1.2rem; border-radius: 999px; font-weight: 800; transition: transform var(--anim-medium) ease; }
 
-/* Chat visuals */
+/* =========================
+   Chat visuals
+   ========================= */
 .chat-wrapper { display:flex; justify-content:center; padding: 32px 12px; }
 .chat-area { width:100%; max-width: 980px; display:flex; flex-direction:column; gap:12px; align-items:center; }
 .chat-page-title { font-weight:900; color: var(--ui-yellow); font-size:1.9rem; text-align:center; transition: transform var(--anim-medium) ease; }
@@ -176,15 +203,19 @@ body {
 .input-placeholder-white::placeholder { color: rgba(255,255,255,0.95); opacity: 1; }
 .btn-send { background: var(--brand-top); color: white; border: none; padding: .6rem 1rem; border-radius: 10px; font-weight:700; transition: transform var(--anim-medium) ease; }
 
-/* History page */
+/* =========================
+   History page
+   ========================= */
 .history-wrapper { display:flex; justify-content:center; padding: 28px 12px; }
 .history-area { width:100%; max-width:980px; display:flex; flex-direction:column; gap:12px; align-items:center; }
 .history-title { font-weight:900; color: var(--ui-yellow); font-size:1.9rem; text-align:center; }
 .history-card { width:100%; background: rgba(78, 167, 233, 0.16); border-radius:12px; padding:12px; color: #fff; border: 1px solid rgba(255,255,255,0.06); }
 
-/* Sidebar & account */
-.icon-btn { display:flex; align-items:center; gap:1rem; padding:1rem 1.1rem; border-radius:.8rem; transition: all var(--anim-medium) ease; }
-.icon-btn svg { width: 36px; height: 36px; }
+/* =========================
+   Sidebar & account
+   ========================= */
+.icon-btn { display:flex; align-items:center; gap:1rem; padding:1rem 1.1rem; border-radius:.8rem; transition: all var(--anim-medium) ease; background: transparent; border: none; }
+.icon-btn svg { width: 36px; height: 36px; display:block; }
 .item-label { font-size:1.1rem; font-weight:700; transition: opacity var(--anim-medium) ease; }
 
 /* hide labels when collapsed */
@@ -198,65 +229,340 @@ html[data-sidebar-collapsed="true"] .logo-4icon { width:72px; height:72px; }
 /* sidebar footer area */
 .sidebar-footer { margin-top:auto; padding:12px; display:flex; align-items:center; justify-content:flex-start; position:relative; transition: justify-content var(--anim-medium) ease; }
 
-/* account avatar */
-.account-avatar { width:48px; height:48px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; transition: transform var(--anim-medium) ease; }
+/* account avatar: ensure circular in collapsed state and rounded rect when expanded */
+.account-avatar { width:48px; height:48px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center; background:#fff; transition: transform var(--anim-medium) ease, border-radius var(--anim-medium) ease; }
 .account-avatar img { width:86%; height:86%; object-fit:contain; }
 
-/* Footer transparente */
+html[data-sidebar-collapsed="true"] .account-avatar {
+  border-radius: 50% !important;
+  width: 56px !important;
+  height: 56px !important;
+}
+html[data-sidebar-collapsed="false"] .account-avatar {
+  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+}
+
+/* =========================
+   Footer transparente
+   ========================= */
 .app-footer {
-  background: transparent;
+  background: transparent !important;
   padding: 16px 20px;
   text-align: center;
   color: #fff;
   position: relative;
-  z-index: 10;
+  z-index: 50;
+  display:flex;
+  justify-content:center;
+  align-items:center;
 }
 
-/* Sidebar hover efeito "levantada" */
+/* =========================
+   Sidebar hover efeito "levantada"
+   ========================= */
 .sidebar nav a:hover,
 .sidebar nav button:hover {
   transform: translateY(-3px);
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02);
   box-shadow: 0 6px 12px rgba(0,0,0,0.12);
 }
 
-/* Scrollbars (WebKit + Firefox) */
-::-webkit-scrollbar { width: 12px; height: 12px; }
-::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 999px; }
-::-webkit-scrollbar-thumb { background: var(--brand-top); border-radius: 999px; border: 3px solid rgba(0,0,0,0.04); }
-* { scrollbar-width: thin; scrollbar-color: var(--brand-top) rgba(0,0,0,0.05); }
-
-/* Fade in: slower */
-.fade-in { animation: fadeInUp var(--anim-slow) cubic-bezier(.2,.9,.2,1) both; }
-@keyframes fadeInUp { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity:1; } }
+/* Ensure images and svgs inside sidebar don't force extra width */
+.sidebar img,
+.sidebar svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
 
 /* =========================
-   Sidebar ajustes
+   Pagination styling (History)
    ========================= */
-.sidebar nav a,
-.sidebar nav button {
+.history-pagination {
+  display:flex;
+  gap:8px;
+  justify-content:center;
+  align-items:center;
+  margin-top:16px;
+}
+.history-pagination .page-arrow {
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  background: var(--ui-yellow);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:none;
+  cursor:pointer;
+  box-shadow: 0 8px 18px rgba(2,20,42,0.12);
+}
+.history-pagination .page-arrow:disabled { opacity: 0.5; cursor: not-allowed; }
+.history-pagination .page-num {
+  width:40px;
+  height:40px;
+  border-radius:8px;
+  background: var(--ui-yellow);
+  color: #fff;
+  border: none;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow: 0 8px 18px rgba(2,20,42,0.12);
+}
+.history-pagination .page-num.inactive {
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* =========================
+   ADDED: Login page detailed styling (only additions)
+   ========================= */
+/* Slightly larger gap and responsive wrapping for user-selection */
+.login-right .user-selection { gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+.login-right .user-tile {
+  width: 110px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  transition: transform var(--anim-medium) ease, box-shadow var(--anim-medium) ease, border-color var(--anim-medium) ease;
+  outline: none;
+  padding: 6px;
+  border-radius: 12px;
+}
+.login-right .user-tile:focus { box-shadow: 0 10px 26px rgba(3,36,62,0.18); transform: translateY(-6px); }
+.login-right .user-tile.selected { transform: translateY(-6px); box-shadow: 0 22px 46px rgba(2,20,42,0.18); }
+
+/* avatar visual tuning */
+.login-right .user-avatar { width: 96px; height: 96px; border-radius: 999px; overflow:hidden; display:flex; align-items:center; justify-content:center; background: #fff; box-shadow: 0 10px 30px rgba(2,20,42,0.08); border: 4px solid transparent; }
+.login-right .user-avatar img { width: 78%; height: 78%; object-fit: contain; display:block; }
+.login-right .user-label { color: #fff; font-weight: 700; font-size: 0.95rem; text-align: center; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; max-width: 100%; }
+
+/* add-account tile */
+.login-right .user-tile.add-account { width: 120px; }
+.login-right .add-account-circle {
+  width: 96px; height: 96px; border-radius: 999px;
+  background: var(--ui-yellow); display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 12px 36px rgba(2,20,42,0.14); transition: transform var(--anim-medium) ease, box-shadow var(--anim-medium) ease;
+}
+.login-right .add-account-circle:hover { transform: translateY(-6px); box-shadow: 0 22px 46px rgba(2,20,42,0.16); }
+.login-right .add-account-circle svg { width: 36px; height: 36px; color: #ffffff; }
+
+/* panels (add / create) — visual */
+.login-right .panel {
+  width: 100%;
+  max-width: 420px;
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  margin-top: 12px;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 12px 36px rgba(2,20,42,0.06);
+}
+.login-right .panel .input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.login-right .panel .input::placeholder { color: rgba(255,255,255,0.6); }
+.login-right .panel .btn-enter { background: var(--ui-yellow); color: #000; border: none; padding: 10px 12px; border-radius: 10px; font-weight: 800; cursor: pointer; }
+.login-right .panel .btn-secondary { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.08); padding: 10px 12px; border-radius: 10px; cursor: pointer; }
+.login-right .small-muted, .login-right .text-sm { color: rgba(255,255,255,0.85); font-size: 0.92rem; }
+.login-right .app-footer { margin-top: 14px; background: transparent; color: #fff; padding: 8px 12px; width: 100%; display:flex; justify-content:center; align-items:center; }
+
+/* micro animations for login card and tiles */
+.login-right .fade-in { animation: loginFadeIn var(--anim-medium) ease both; }
+.login-right .fade-out { animation: loginFadeOut var(--anim-fast) ease both; }
+@keyframes loginFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes loginFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(8px); } }
+.login-right .user-tile:focus-visible { outline: 3px solid rgba(255,255,255,0.14); outline-offset: 4px; }
+
+/* responsive tweaks */
+@media (max-width: 720px) {
+  .login-right .user-selection { gap: 8px; }
+  .login-right .user-tile { width: 44%; }
+  .login-right .user-tile.add-account { width: 44%; }
+  .login-right .login-card { padding: 18px; }
+}
+
+/* =========================
+   Settings page: accordion sections + visual feedback
+   Consolidated and corrected: sections CAN collapse; pattern is fixed; inputs & buttons match login visuals.
+   ========================= */
+
+/* Section wrapper: no min-height so it can collapse with body */
+.settings-section {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(3,36,62,0.98), rgba(6,60,96,0.96));
+  transition: box-shadow var(--anim-medium) ease, transform var(--anim-medium) ease;
+  color: #fff;
+  display: block;
+  box-sizing: border-box;
+}
+
+/* header */
+.settings-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
   color: #fff;
-  text-decoration: none;
-  justify-content: flex-start; /* ícone à esquerda, texto centralizado ao lado */
+}
+.settings-header:focus { outline: none; box-shadow: 0 12px 36px rgba(2,20,42,0.06); border-radius: 12px; }
+
+/* chevron rotate */
+.settings-header .chev { font-size: 20px; color: rgba(255,255,255,0.95); transform: rotate(0deg); transition: transform var(--anim-fast) ease; }
+.settings-header .chev.open { transform: rotate(180deg); }
+
+/* body collapsed/expanded */
+/* Collapsed: zero height and padding so only header shows */
+.settings-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--anim-medium) cubic-bezier(.2,.9,.2,1), padding var(--anim-medium) ease, opacity var(--anim-fast) ease;
+  padding: 0 16px;
+  opacity: 0;
+}
+.settings-body.open {
+  max-height: 720px; /* generous to contain panel content */
+  padding: 12px 16px 18px 16px;
+  opacity: 1;
 }
 
-.sidebar nav a span,
-.sidebar nav button span {
-  flex: 1; /* ocupa o espaço restante ao lado do ícone */
-  text-align: center;
+/* panel inside settings: keep panel appearance similar to login panels */
+.settings-body .panel {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--brand-top); /* same brand top blue as login panels */
+  color: #fff;
+  box-shadow: 0 20px 60px rgba(2,20,42,0.12);
+  border: 1px solid rgba(255,255,255,0.04);
 }
 
-.sidebar nav a:hover,
-.sidebar nav button:hover {
-  background: rgba(255,255,255,0.05); /* mantém animação */
-  transform: translateY(-3px); 
-  box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+/* Inputs inside settings panels should match login inputs */
+.settings-body .panel .input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.06); /* subtle light fill like login */
+  color: #fff;
+  font-size: 1rem;
+  outline: none;
+  box-sizing: border-box;
+}
+.settings-body .panel .input::placeholder { color: rgba(255,255,255,0.66); }
+
+/* Labels & small text */
+.settings-body label { color: #FFFFFF; font-weight: 600; font-size: 0.95rem; }
+.settings-section .note { color: rgba(255,255,255,0.9); font-size: 0.95rem; }
+
+/* Buttons in settings panels: primary = yellow white text; secondary = transparent white border */
+.settings-body .btn-enter {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--ui-yellow);
+  color: #fff;
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(2,20,42,0.12);
+}
+.settings-body .btn-enter:disabled { opacity: 0.6; cursor: not-allowed; }
+.settings-body .btn-secondary {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255,255,255,0.95);
+  border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer;
 }
 
-.sidebar {
-  min-height: 100vh; /* garante altura completa */
-  height: 100vh;
+/* subtle lift on section hover */
+.settings-section:hover { transform: translateY(-4px); box-shadow: 0 18px 44px rgba(2,20,42,0.12); }
+
+/* warning box (used in delete history) */
+.settings-warning {
+  background: rgba(183,40,40,0.08);
+  border: 1px solid rgba(183,40,40,0.12);
+  color: #FFDDDD;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* responsiveness */
+@media (max-width: 720px) {
+  .settings-body.open { padding: 10px 12px 14px; }
+  .settings-body .panel { padding: 12px; max-width: 100%; }
+}
+
+/* Ensure section content sits above the fixed pattern */
+.settings-section,
+.settings-section * { position: relative; z-index: 2; }
+
+/* =========================
+   Custom scrollbar styling
+   - body scrollbar (site-wide) uses #03417E thumb; track neutral
+   - chat scrollbar remains unaffected (you styled .chat-window separately if desired)
+   ========================= */
+
+/* Chrome, Edge, Safari (site body) */
+body::-webkit-scrollbar { width: 12px; height: 12px; }
+body::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); border-radius: 999px; }
+body::-webkit-scrollbar-thumb { background: #03417E; border-radius: 999px; border: 3px solid rgba(0,0,0,0.06); }
+body::-webkit-scrollbar-thumb:hover { background: #023a6a; }
+
+/* If you want to style chat window separately, add rules for .chat-window::-webkit-scrollbar (not included here) */
+
+/* Firefox: apply to body only */
+body { scrollbar-color: #03417E rgba(255,255,255,0.02); scrollbar-width: thin; }
+
+/* Generic fallback for other elements (thin + same color mapping) */
+* { scrollbar-width: thin; }
+
+/* Accessibility focus for settings inputs */
+.settings-body .panel .input:focus {
+  box-shadow: 0 8px 26px rgba(3,56,106,0.16);
+  border-color: rgba(255,255,255,0.14);
+  outline: none;
+}
+
+/* =========================
+   Minor responsive adjustments
+   ========================= */
+@media (max-width: 980px) {
+  .app-main { margin-left: var(--sidebar-width-collapsed); }
+  html[data-sidebar-collapsed="true"] .app-main { margin-left: var(--sidebar-width-collapsed); }
 }
