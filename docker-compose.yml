@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: 4blue_backend
+    volumes:
+      - ./backend:/app  
+      - db_data:/data
+    ports:
+      - "8000:8000"
+    networks:
+      - 4blue_net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: 4blue_frontend
+    environment:
+      - VITE_API_BASE=http://host.docker.internal:8000   
+    ports:
+      - "5173:80"   
+    networks:
+      - 4blue_net
+
+volumes:
+  db_data:
+
+networks:
+  4blue_net:
+    driver: bridge
