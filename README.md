@@ -91,7 +91,9 @@ Frontend: http://localhost:5173
 
 ## 🐳 Como rodar com Docker
 ```
+#na raiz do projeto rode:
 docker compose up --build
+#abra http://localhost:5173/ no seu navegador de preferencia
 ```
 Backend: Gunicorn (http://localhost:8000)
 Frontend: Nginx (http://localhost:5173)
