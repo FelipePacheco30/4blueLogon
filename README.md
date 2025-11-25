@@ -74,9 +74,9 @@ Permitir que qualquer usuário se comunique com o sistema de maneira rápida e o
 ### Backend
 ```
 cd backend
+python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python manage.py migrate
 python manage.py runserver
 ```
 Backend: http://localhost:8000
@@ -149,9 +149,9 @@ direction: 'sent' = usuário para sistema, 'received' = resposta do sistema
 
 viewed: se a mensagem já foi lida no frontend
 ```
+---
 
-
-🔧 Decisões Técnicas
+## 🔧 Decisões Técnicas
 
 Django + DRF: Backend robusto para APIs REST
 
